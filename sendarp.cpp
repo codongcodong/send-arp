@@ -105,7 +105,7 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
         if (res == 0) continue;
         if (res == -1 || res == -2) {
             printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
-            break;
+            exit(0);
         }
 
         arpReply = (EthArpPacket*)packet;

@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
 	
 	for(int i=2;i<argc;i+=2){
 		printf("Sending fake ARP response to sender ip %d: %s\n",i/2, argv[i]);
-		sendFakeARP(handle, myMac, argv[i], argv[i+1]);
+		sendFakeARP(handle, argv[i], argv[i+1]);
 	}
 
 	pcap_close(handle);

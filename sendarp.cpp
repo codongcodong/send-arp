@@ -118,7 +118,7 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     }
 }
 
-void sendFakeARP(pcap_t* handle, const Mac myMac, const char* senderIp, const char* targetIp){
+void sendFakeARP(pcap_t* handle, const char* senderIp, const char* targetIp){
 
     Mac senderMac = getMacFromIP(handle, senderIp);
     Mac targetMac = getMacFromIP(handle, targetIp);

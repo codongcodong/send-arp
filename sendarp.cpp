@@ -54,14 +54,14 @@ Ip getMyIp(const char* ifname){
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if(sockfd < 0) {
-        fprintf(stderr, "Fail to get interface MAC address - socket() failed - %m\n");
+        fprintf(stderr, "Fail to get interface IP address - socket() failed - %m\n");
         exit(0);
     }
 
     strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     ret = ioctl(sockfd, SIOCGIFADDR, &ifr);
     if (ret < 0) {
-        fprintf(stderr, "Fail to get interface MAC address - ioctl(SIOCSIFADDR) failed - %m\n");
+        fprintf(stderr, "Fail to get interface IP address - ioctl(SIOCSIFADDR) failed - %m\n");
         close(sockfd);
         exit(0);
     }
@@ -81,6 +81,8 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     EthArpPacket arpPacket;
     EthArpPacket* arpReply;
  
+	Ip targetIp(ipAddr);
+
     arpPacket.eth_.dmac_ = Mac("FF:FF:FF:FF:FF:FF");
     arpPacket.eth_.smac_ = myMac;
     arpPacket.eth_.type_ = htons(EthHdr::Arp);
@@ -93,7 +95,7 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     arpPacket.arp_.smac_ = myMac;
     arpPacket.arp_.sip_ = htonl(myIp); 
     arpPacket.arp_.tmac_ = Mac("00:00:00:00:00:00");
-    arpPacket.arp_.tip_ = htonl(Ip(ipAddr));
+    arpPacket.arp_.tip_ = htonl(targetIp);
 
     res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&arpPacket), sizeof(EthArpPacket));
     if (res != 0) {
@@ -109,7 +111,8 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
         }
 
         arpReply = (EthArpPacket*)packet;
-        if((arpReply->eth_.type_ == htons(EthHdr::Arp)) && (arpReply->arp_.op_ == htons(ArpHdr::Reply))){
+        if((arpReply->eth_.type_ == htons(EthHdr::Arp)) && (arpReply->arp_.op_ == htons(ArpHdr::Reply)) 
+                && (arpReply->arp_.sip_.operator==(htonl(targetIp)))){
             return arpReply->arp_.smac_;
         }
     }

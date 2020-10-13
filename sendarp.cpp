@@ -81,7 +81,7 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     EthArpPacket arpPacket;
     EthArpPacket* arpReply;
  
-	Ip targetIp(ipAddr);
+    Ip targetIp(ipAddr);
 
     arpPacket.eth_.dmac_ = Mac("FF:FF:FF:FF:FF:FF");
     arpPacket.eth_.smac_ = myMac;

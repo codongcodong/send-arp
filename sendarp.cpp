@@ -102,11 +102,11 @@ Mac getMacFromIP(pcap_t* handle, addressInfo myAddressInfo, const char* ipAddr){
 
     while (true) {
         res = pcap_next_ex(handle, &header, &packet);
-        if (res == 0){
+        if (res == 0){      //timeout
             res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&arpPacket), sizeof(EthArpPacket));
-                if (res != 0) {
-       	            fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
-                }
+            if (res != 0) {
+       	        fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
+            }
             continue;
         }
         if (res == -1 || res == -2) {

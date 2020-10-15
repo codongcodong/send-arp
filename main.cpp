@@ -4,9 +4,6 @@
 #include "ip.h"
 #include "sendarp.h"
 
-Mac myMac;
-Ip myIp;
-
 void usage() {
 	printf("syntax : send-arp <interface> <sender ip> <target ip> [<sender ip 2> <target ip 2> ...]\n");
 	printf("sample : send-arp wlan0 192.168.10.2 192.168.10.1\n");
@@ -26,15 +23,17 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	myMac = getMyMac(argv[1]);
-	printf("myMac: %s\n",myMac.operator std::string().c_str());
-	myIp = getMyIp(argv[1]);
-	printf("myIp: %s\n",myIp.operator std::string().c_str());
-	puts("");
+	addressInfo myAddressInfo(argv[1]);			//initializing adresss information
+	for(int i=2;i<argc;i++){
+		if(myAddressInfo.arpCache.find(argv[i]) == myAddressInfo.arpCache.end()){
+			myAddressInfo.arpCache[argv[i]] = getMacFromIP(handle, myAddressInfo, argv[i]);
+		}
+	}
+	myAddressInfo.printAddressInfo();
 	
 	for(int i=2;i<argc;i+=2){
 		printf("Sending fake ARP response to sender ip %d: %s\n",i/2, argv[i]);
-		sendFakeARP(handle, argv[i], argv[i+1]);
+		sendFakeARP(handle, myAddressInfo, argv[i], argv[i+1]);
 	}
 
 	pcap_close(handle);

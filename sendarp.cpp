@@ -11,6 +11,7 @@
 #include "ip.h"
 #include "ethhdr.h"
 #include "arphdr.h"
+#include "sendarp.h"
 
 #pragma pack(push, 1)
 struct EthArpPacket {
@@ -19,10 +20,7 @@ struct EthArpPacket {
 };
 #pragma pack(pop)
 
-extern Mac myMac;
-extern Ip myIp;
-
-Mac getMyMac(const char* ifname){
+Mac addressInfo::getMyMac(const char* ifname){
     struct ifreq ifr;
     int sockfd, ret;
     uint8_t macAddr[6];
@@ -47,7 +45,7 @@ Mac getMyMac(const char* ifname){
     return Mac(macAddr);
 }
 
-Ip getMyIp(const char* ifname){
+Ip addressInfo::getMyIp(const char* ifname){
     struct ifreq ifr;
     int sockfd, ret;
     char ipAddr[40];
@@ -72,7 +70,7 @@ Ip getMyIp(const char* ifname){
     return Ip(ipAddr);
 }
 
-Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
+Mac getMacFromIP(pcap_t* handle, addressInfo myAddressInfo, const char* ipAddr){
     
     struct pcap_pkthdr* header;
     const u_char* packet;
@@ -84,7 +82,7 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     Ip targetIp(ipAddr);
 
     arpPacket.eth_.dmac_ = Mac("FF:FF:FF:FF:FF:FF");
-    arpPacket.eth_.smac_ = myMac;
+    arpPacket.eth_.smac_ = myAddressInfo.myMac;
     arpPacket.eth_.type_ = htons(EthHdr::Arp);
 
     arpPacket.arp_.hrd_ = htons(ArpHdr::ETHER);
@@ -92,11 +90,11 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     arpPacket.arp_.hln_ = Mac::SIZE;
     arpPacket.arp_.pln_ = Ip::SIZE;
     arpPacket.arp_.op_ = htons(ArpHdr::Request);
-    arpPacket.arp_.smac_ = myMac;
-    arpPacket.arp_.sip_ = htonl(myIp); 
+    arpPacket.arp_.smac_ = myAddressInfo.myMac;
+    arpPacket.arp_.sip_ = htonl(myAddressInfo.myIp); 
     arpPacket.arp_.tmac_ = Mac("00:00:00:00:00:00");
     arpPacket.arp_.tip_ = htonl(targetIp);
-
+    
     res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&arpPacket), sizeof(EthArpPacket));
     if (res != 0) {
        	fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
@@ -104,7 +102,13 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
 
     while (true) {
         res = pcap_next_ex(handle, &header, &packet);
-        if (res == 0) continue;
+        if (res == 0){
+            res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&arpPacket), sizeof(EthArpPacket));
+                if (res != 0) {
+       	            fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
+                }
+            continue;
+        }
         if (res == -1 || res == -2) {
             printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
             exit(0);
@@ -118,10 +122,10 @@ Mac getMacFromIP(pcap_t* handle, const char* ipAddr){
     }
 }
 
-void sendFakeARP(pcap_t* handle, const char* senderIp, const char* targetIp){
+void sendFakeARP(pcap_t* handle, addressInfo myAddressInfo, const char* senderIp, const char* targetIp){
 
-    Mac senderMac = getMacFromIP(handle, senderIp);
-    Mac targetMac = getMacFromIP(handle, targetIp);
+    Mac senderMac = myAddressInfo.arpCache.find(senderIp)->second;
+    Mac targetMac = myAddressInfo.arpCache.find(targetIp)->second;
 
     printf("sender Ip: %s\n", senderIp);
     printf("sender Mac: %s\n",senderMac.operator std::string().c_str());
@@ -134,7 +138,7 @@ void sendFakeARP(pcap_t* handle, const char* senderIp, const char* targetIp){
     EthArpPacket packet;
 
     packet.eth_.dmac_ = senderMac;
-    packet.eth_.smac_ = myMac;
+    packet.eth_.smac_ = myAddressInfo.myMac;
     packet.eth_.type_ = htons(EthHdr::Arp);
 
     packet.arp_.hrd_ = htons(ArpHdr::ETHER);
@@ -142,7 +146,7 @@ void sendFakeARP(pcap_t* handle, const char* senderIp, const char* targetIp){
     packet.arp_.hln_ = Mac::SIZE;
     packet.arp_.pln_ = Ip::SIZE;
     packet.arp_.op_ = htons(ArpHdr::Reply);
-    packet.arp_.smac_ = myMac;
+    packet.arp_.smac_ = myAddressInfo.myMac;
     packet.arp_.sip_ = htonl(Ip(targetIp));
     packet.arp_.tmac_ = senderMac;
     packet.arp_.tip_ = htonl(Ip(senderIp));
